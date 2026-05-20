@@ -82,3 +82,44 @@ def test_update_task_not_found_returns_404(client):
     resp = client.patch("/tasks/9999", json={"title": "No existe"})
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Task not found"
+
+
+# --- tests de list_tasks_by_status ---
+
+def test_list_tasks_by_status_returns_filtered_tasks(client):
+    """GET /tasks/status/{status} devuelve solo las tareas con ese estado."""
+    _create_task(client, title="Pendiente 1", status="pending")
+    _create_task(client, title="Pendiente 2", status="pending")
+    _create_task(client, title="En progreso", status="in_progress")
+    _create_task(client, title="Completada", status="done")
+
+    resp = client.get("/tasks/status/pending")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    assert all(t["status"] == "pending" for t in data)
+
+    resp = client.get("/tasks/status/in_progress")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "En progreso"
+
+    resp = client.get("/tasks/status/done")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "Completada"
+
+
+def test_list_tasks_by_status_returns_empty_list(client):
+    """GET /tasks/status/{status} devuelve lista vacía si no hay tareas con ese estado."""
+    resp = client.get("/tasks/status/done")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_tasks_by_status_invalid_status_returns_422(client):
+    """GET /tasks/status/{status} con un valor inválido devuelve 422."""
+    resp = client.get("/tasks/status/invalid")
+    assert resp.status_code == 422
